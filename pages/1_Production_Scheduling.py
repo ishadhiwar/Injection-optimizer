@@ -1,32 +1,49 @@
 import streamlit as st
 from pyomo.environ import *
 
+# ---------------------------
+# Streamlit Page Setup
+# ---------------------------
 st.set_page_config(page_title="Production Scheduling", page_icon="🏭", layout="wide")
 st.title("🏭 Production Scheduling Optimizer")
-st.write("Assign jobs to machines to minimize time and changeover costs while meeting demand.")
+st.write("Optimize medical consumables production across injection molding machines.")
 st.markdown("---")
 
-# --- Input Data ---
-jobs = ['JobA', 'JobB', 'JobC']
-machines = ['IMM_1', 'IMM_2']
+# ---------------------------
+# User Inputs
+# ---------------------------
+st.subheader("📦 Define Jobs (Medical Consumables)")
+jobs = st.multiselect("Select Jobs", ["Syringe", "Gloves", "Catheter", "IV_Set"], default=["Syringe", "Gloves"])
 
-# Demand (units)
-demand = {'JobA': 500, 'JobB': 400, 'JobC': 300}
+st.subheader("🏭 Define Machines (Injection Molding)")
+machines = st.multiselect("Select Machines", ["IMM_1", "IMM_2"], default=["IMM_1", "IMM_2"])
 
-# Cycle time (seconds per part)
-cycle_time = {
-    ('JobA', 'IMM_1'): 25, ('JobA', 'IMM_2'): 28,
-    ('JobB', 'IMM_1'): 35, ('JobB', 'IMM_2'): 32,
-    ('JobC', 'IMM_1'): 20, ('JobC', 'IMM_2'): 22,
-}
+# Demand input
+st.subheader("📊 Demand (Units Required)")
+demand = {}
+for j in jobs:
+    demand[j] = st.number_input(f"Demand for {j}", min_value=0, value=1000, step=100)
 
-# Setup changeover time (minutes)
-changeover_time = 30  
+# Cycle times input
+st.subheader("⚙️ Cycle Times (seconds per part)")
+cycle_time = {}
+for j in jobs:
+    for m in machines:
+        cycle_time[(j, m)] = st.number_input(f"Cycle Time for {j} on {m}", min_value=1, value=30, step=1)
 
-# Machine available time (hours) – deliberately high to avoid infeasibility
-available_hours = {'IMM_1': 200, 'IMM_2': 180}
+# Changeover and capacity
+st.subheader("🔧 Process Parameters")
+changeover_time = st.number_input("Setup Changeover Time (minutes)", min_value=1, value=30, step=1)
 
-# --- Optimization ---
+available_hours = {}
+for m in machines:
+    available_hours[m] = st.number_input(f"Available Hours for {m}", min_value=1, value=200, step=10)
+
+st.markdown("---")
+
+# ---------------------------
+# Optimization
+# ---------------------------
 if st.button("🚀 Optimize Production Schedule"):
 
     model = ConcreteModel()
@@ -44,24 +61,24 @@ if st.button("🚀 Optimize Production Schedule"):
         return prod_time + setup_time + penalty
     model.objective = Objective(rule=objective_rule, sense=minimize)
 
-    # Constraint: meet demand (with slack if needed)
+    # Demand constraint
     def demand_rule(model, j):
         return sum(model.production[j, m] for m in machines) + model.slack[j] >= demand[j]
     model.demand_constraint = Constraint(jobs, rule=demand_rule)
 
-    # Constraint: machine time
+    # Machine capacity constraint
     def capacity_rule(model, m):
         prod_time = sum(model.production[j, m] * cycle_time[j, m] / 3600 for j in jobs)
         setup_time = sum(model.assignment[j, m] for j in jobs) * changeover_time / 60
         return prod_time + setup_time <= available_hours[m]
     model.capacity_constraint = Constraint(machines, rule=capacity_rule)
 
-    # Constraint: link assignment to production
+    # Assignment linking
     def assignment_link_rule(model, j, m):
         return model.production[j, m] <= demand[j] * model.assignment[j, m]
     model.assignment_link = Constraint(jobs, machines, rule=assignment_link_rule)
 
-    # Solve with HiGHS
+    # Solve
     solver = SolverFactory("highs")
     results = solver.solve(model, tee=False)
 
@@ -84,7 +101,7 @@ if st.button("🚀 Optimize Production Schedule"):
             else:
                 st.write("No jobs assigned.")
 
-        # Show unmet demand if any
+        # Unmet demand report
         st.markdown("### ⚠️ Unmet Demand (Slack)")
         slack_data = []
         for j in jobs:
