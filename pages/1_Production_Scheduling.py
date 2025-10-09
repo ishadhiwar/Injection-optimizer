@@ -115,6 +115,26 @@ if st.button("🚀 Optimize Production Schedule"):
         else:
             st.write("All demand satisfied ✅")
 
+        # ---------------------------
+        # Interpretation Section
+        # ---------------------------
+        st.markdown("## 📈 Interpretation of Results")
+
+        for m in machines:
+            prod_time = sum((model.production[j,m].value or 0) * cycle_time[j,m] / 3600 for j in jobs)
+            utilization = (prod_time / available_hours[m]) * 100
+            st.write(f"- {m} utilized **{utilization:.1f}%** of available time.")
+            if utilization > 90:
+                st.warning(f"{m} is a potential bottleneck (over {utilization:.1f}% utilized).")
+
+        for j in jobs:
+            slack_val = model.slack[j].value or 0
+            if slack_val > 0:
+                st.error(f"⚠️ Demand shortfall for {j}: {slack_val:.0f} units unmet.")
+
+        st.info("💡 Interpretation: Jobs are assigned to minimize total production time and setup cost. "
+                "High-demand items are prioritized on faster machines, while slower machines handle spillover demand. "
+                "Any unmet demand suggests insufficient machine hours or too high cycle times.")
+
     else:
         st.error("❌ Optimization failed.")
-
