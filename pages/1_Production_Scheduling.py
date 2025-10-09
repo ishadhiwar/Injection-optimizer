@@ -16,7 +16,10 @@ st.subheader("📦 Define Jobs (Medical Consumables)")
 jobs = st.multiselect("Select Jobs", ["Syringe", "Gloves", "Catheter", "IV_Set"], default=["Syringe", "Gloves"])
 
 st.subheader("🏭 Define Machines (Injection Molding)")
-machines = st.multiselect("Select Machines", ["IMM_1", "IMM_2"], default=["IMM_1", "IMM_2"])
+machines = st.multiselect("Select Machines", 
+    ["Arburg_Allrounder_320C", "Engel_Victory_200", "KraussMaffei_Hydronica_300"],
+    default=["Arburg_Allrounder_320C", "Engel_Victory_200"]
+)
 
 # Demand input
 st.subheader("📊 Demand (Units Required)")
@@ -114,3 +117,4 @@ if st.button("🚀 Optimize Production Schedule"):
 
     else:
         st.error("❌ Optimization failed.")
+
